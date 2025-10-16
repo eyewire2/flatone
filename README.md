@@ -4,26 +4,35 @@ A command-line tool that automatically (1) downloads the mesh of an EyeWire II n
 
 > __NOTE__ 
 > 
-> `flatone` is designed for quick, exploratory inspection. Skeletons and warps are generated with the default parameters of `skeliner` and `pywarper`, most of them cannot be tuned directly in `flatone`, so results might not be optimal for some cells. For higher-precision results, run `skeliner` and `pywarper` directly and fine-tune the parameters.
-
+> 1. `flatone` is designed for quick, exploratory inspection. Skeletons and warps are generated with the default parameters of `skeliner` and `pywarper`, most of them cannot be tuned directly in `flatone`, so results might not be optimal for some cells. For higher-precision results, run `skeliner` and `pywarper` directly and fine-tune the parameters.
+>
+> 2. `flatone` relies on SuiteSparse, which does **NOT** run on native Windows. Use it on Unix-like enviroment or Windows Subsystem for Linux (WSL 2) instead. 
+>
+> 3. As of 2025-10-16 this repository stores cached assets with Git LFS. If you cloned the repo before that date, bring your checkout back in sync once with:
+> ```
+> git fetch origin
+> git switch main
+> git reset --hard origin/main
+> git lfs install
+> ```
 
 ## Installation
-
-`flatone` relies on SuiteSparse, which does **NOT** run on native Windows. Use it on Unix-like enviroment or Windows Subsystem for Linux (WSL 2) instead.
-
-
 ```bash
 # prerequisites
 ## mac
 brew update
 brew install suite-sparse
+brew install git-lfs
+
 
 ## debian/ubuntu/WSL 
 sudo apt-get update
 sudo apt-get install build-essential # if not already installed
 sudo apt-get install libsuitesparse-dev
+sudo apt-get install git-lfs
 
 # clone this repo 
+git lfs install
 git clone git@github.com:berenslab/flatone.git
 cd flatone 
 
