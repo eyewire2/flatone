@@ -199,11 +199,7 @@ def build_skeleton(
 
     if verbose:
         print("Skeletonising …")
-        print(
-            soma_threshold,
-            soma_distance_factor,
-            f"init_guess=({soma_init_guess_axis}, {soma_init_guess_mode})",
-        )
+
     mesh = sk.io.load_mesh(mesh_path)  # nm
     skel = sk.skeletonize(
         mesh,
