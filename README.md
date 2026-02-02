@@ -14,6 +14,7 @@ A command-line tool that automatically (1) downloads the mesh of an EyeWire II n
 > git switch main
 > git reset --hard origin/main
 > git lfs install
+> git lfs pull
 > ```
 
 ## Installation
@@ -35,6 +36,7 @@ sudo apt-get install git-lfs
 git lfs install
 git clone git@github.com:berenslab/flatone.git
 cd flatone 
+git lfs pull
 
 # install with uv to the global environment
 uv tool install .
