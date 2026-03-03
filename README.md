@@ -38,20 +38,27 @@ git clone git@github.com:berenslab/flatone.git
 cd flatone 
 git lfs pull
 
-# install with uv to the global environment
-uv tool install .
-
-# or with pip (also to the global environment)
-pip install -e .
-
-# but it's highly recommended to install it within a venv env
-# here we use uv again but of course you can run python -m venv 
-uv venv .venv --python 3.13 # any versions>=3.10 should work
-source .venv/bin/activate
-uv pip install -e .
+# it's highly recommended to install it with uv
+uv sync
 
 # now you can check if it works
-flatone -v 
+uv run flatone -v
+
+ 
+# or you can run it within the .venv
+source .venv/bin/activate
+flatone -v
+```
+
+## Updating
+
+The global map files shipped with `flatone` are currently draft versions (`20251016`), which correspond to the version used for the resource paper manuscript. After the preprint is out, these will be updated with the latest list of proofread SACs. To get the latest maps:
+
+```bash
+cd flatone
+git pull
+git lfs pull
+uv sync
 ```
 
 ## Usage
