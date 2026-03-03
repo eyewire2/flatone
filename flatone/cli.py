@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import warnings
+warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
+
 import argparse
 import io
 import re
