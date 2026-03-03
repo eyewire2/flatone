@@ -44,8 +44,7 @@ uv sync
 # now you can check if it works
 uv run flatone -v
 
- 
-# or you can run it within the .venv
+ # or you can run it within the .venv
 source .venv/bin/activate
 flatone -v
 ```
