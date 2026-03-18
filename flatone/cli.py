@@ -176,6 +176,70 @@ def fetch_mesh(seg_id: int, outdir: Path, verbose: bool, overwrite: bool) -> Pat
     return mesh_path
 
 
+_DEFAULT_DATASTACK: Final = "stroeh_mouse_retina"
+
+
+def _fix_swc_indexing(swc_path: Path) -> None:
+    """Convert 0-indexed SWC (meshparty convention) to standard 1-indexed."""
+    lines: list[str] = []
+    for raw in swc_path.read_text().splitlines():
+        if raw.startswith("#") or not raw.strip():
+            lines.append(raw)
+            continue
+        parts = raw.split()
+        parts[0] = str(int(parts[0]) + 1)  # id: 0-based → 1-based
+        parent = int(parts[6])
+        parts[6] = str(parent + 1 if parent >= 0 else -1)  # parent
+        lines.append(" ".join(parts))
+    swc_path.write_text("\n".join(lines) + "\n")
+
+
+def fetch_cave_skeleton(
+    seg_id: int,
+    outdir: Path,
+    verbose: bool,
+    overwrite: bool,
+    soma_pos: list[int] | None = None,
+    root_point_resolution: list[int] | None = None,
+) -> Path:
+    """Download CAVE skeleton via pcg_skel and save as SWC; return path."""
+    import pcg_skel
+    from caveclient import CAVEclient
+
+    client = CAVEclient(_DEFAULT_DATASTACK)
+    _prompt_for_token(client)
+
+    swc_path = outdir / "skeleton-cave.swc"
+    if not overwrite and swc_path.exists():
+        if verbose:
+            print(f"CAVE skeleton for segment {seg_id} already exists at:")
+            print(f"  {swc_path}\n")
+        return swc_path
+
+    if verbose:
+        print(f"Fetching CAVE skeleton for segment {seg_id} …")
+
+    kw: dict = dict(root_id=seg_id, client=client)
+    if soma_pos is not None:
+        kw.update(
+            root_point=soma_pos,
+            root_point_resolution=root_point_resolution or [16, 16, 40],
+            collapse_soma=True,
+            collapse_radius=7500,
+        )
+
+    skel = pcg_skel.pcg_skeleton(**kw)
+    skel.export_to_swc(str(swc_path))
+
+    # meshparty writes 0-indexed SWC; convert to standard 1-indexed
+    _fix_swc_indexing(swc_path)
+
+    if verbose:
+        print("Saved CAVE skeleton to:")
+        print(f"  {swc_path}\n")
+    return swc_path
+
+
 def build_skeleton(
     mesh_path: Path,
     outdir: Path,
@@ -622,6 +686,7 @@ def _build_pipeline_parser() -> argparse.ArgumentParser:
     g.add_argument("--overwrite-skeleton", action="store_true")
     g.add_argument("--overwrite-profile", action="store_true")
     g.add_argument("--overwrite-warped-mesh", action="store_true")
+    g.add_argument("--overwrite-cave-skeleton", action="store_true")
 
     # other options
     p.add_argument("--no-verbose", dest="verbose", action="store_false")
@@ -673,6 +738,22 @@ def _build_pipeline_parser() -> argparse.ArgumentParser:
             "'z min'. AXIS ∈ {x,y,z}; EXTREME ∈ {min,max}."
         ),
     )
+    p.add_argument(
+        "--soma-pos",
+        type=int,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=None,
+        help="Soma position in voxel coordinates for CAVE skeleton; enables root-point anchoring and soma collapse",
+    )
+    p.add_argument(
+        "--root-point-resolution",
+        type=int,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=[16, 16, 40],
+        help="Resolution in nm/voxel for the soma position (default: 16 16 40)",
+    )
 
     return p
 
@@ -703,13 +784,67 @@ def _build_viewer_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _build_get_mesh_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="flatone get-mesh",
+        description="Download the mesh for a segment",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("seg_id", type=int, help="EM segment ID")
+    p.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("./output"),
+        help="directory for meshes, skeletons, and plots",
+    )
+    p.add_argument("--overwrite", action="store_true")
+    p.add_argument("--no-verbose", dest="verbose", action="store_false")
+    return p
+
+
+def _build_get_cave_skeleton_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="flatone get-cave-skeleton",
+        description="Download the CAVE skeleton for a segment",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("seg_id", type=int, help="EM segment ID")
+    p.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("./output"),
+        help="directory for meshes, skeletons, and plots",
+    )
+    p.add_argument(
+        "--soma-pos",
+        type=int,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=None,
+        help="Soma position in voxel coordinates; enables root-point anchoring and soma collapse",
+    )
+    p.add_argument(
+        "--root-point-resolution",
+        type=int,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=[16, 16, 40],
+        help="Resolution in nm/voxel for the soma position (default: 16 16 40)",
+    )
+    p.add_argument("--overwrite", action="store_true")
+    p.add_argument("--no-verbose", dest="verbose", action="store_false")
+    return p
+
+
 def _print_top_help() -> None:
     """Combined help when user calls just `flatone -h`."""
     _build_pipeline_parser().print_help()
     print(
         "\nSUB-COMMANDS\n"
-        "  view3d      interactive 3-D viewer\n"
-        "  add-token   store a CAVEclient token\n"
+        "  view3d              interactive 3-D viewer\n"
+        "  get-mesh            download the mesh only\n"
+        "  get-cave-skeleton   download the CAVE skeleton only\n"
+        "  add-token           store a CAVEclient token\n"
         "\nRun  “flatone <sub-command> -h”  for details.\n"
     )
     sys.exit(0)
@@ -745,6 +880,26 @@ def main() -> None:
         run_3dviewer(args.seg_ids, args.output_dir, warped=args.warped)
         return
 
+    # download mesh only
+    if argv[0] == "get-mesh":
+        args = _build_get_mesh_parser().parse_args(argv[1:])
+        outdir = args.output_dir / str(args.seg_id)
+        outdir.mkdir(parents=True, exist_ok=True)
+        fetch_mesh(args.seg_id, outdir, args.verbose, args.overwrite)
+        return
+
+    # download CAVE skeleton only
+    if argv[0] == "get-cave-skeleton":
+        args = _build_get_cave_skeleton_parser().parse_args(argv[1:])
+        outdir = args.output_dir / str(args.seg_id)
+        outdir.mkdir(parents=True, exist_ok=True)
+        fetch_cave_skeleton(
+            args.seg_id, outdir, args.verbose, args.overwrite,
+            soma_pos=args.soma_pos,
+            root_point_resolution=args.root_point_resolution,
+        )
+        return
+
     # otherwise: pipeline
     args = _build_pipeline_parser().parse_args(argv)
 
@@ -758,8 +913,14 @@ def main() -> None:
     ow_skel = args.overwrite or args.overwrite_skeleton
     ow_prof = args.overwrite or args.overwrite_profile
     ow_meshwarp = args.overwrite or args.overwrite_warped_mesh
+    ow_cave_skel = args.overwrite or args.overwrite_cave_skeleton
 
     mesh_path = fetch_mesh(args.seg_id, outdir, args.verbose, ow_mesh)
+    fetch_cave_skeleton(
+        args.seg_id, outdir, args.verbose, ow_cave_skel,
+        soma_pos=args.soma_pos,
+        root_point_resolution=args.root_point_resolution,
+    )
     skel_path = build_skeleton(
         mesh_path,
         outdir,

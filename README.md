@@ -1,6 +1,6 @@
 # flatone
 
-A command-line tool that automatically (1) downloads the mesh of an EyeWire II neuron as `.obj` with [CaveClient/CloudVolume](https://github.com/seung-lab/cloud-volume), (2) skeletonizes it as an `.swc` with [skeliner](https://github.com/berenslab/skeliner) and (3) flattens it with [pywarper](https://github.com/berenslab/pywarper).
+A command-line tool that automatically (1) downloads the mesh of an EyeWire II neuron as `.obj` with [CaveClient/CloudVolume](https://github.com/seung-lab/cloud-volume), (2) downloads the CAVE skeleton as `.swc` with [pcg_skel](https://github.com/AllenInstitute/pcg_skel), (3) skeletonizes the mesh as an `.swc` with [skeliner](https://github.com/berenslab/skeliner) and (4) flattens it with [pywarper](https://github.com/berenslab/pywarper).
 
 > __NOTE__ 
 > 
@@ -99,8 +99,9 @@ This will create an `output` directory in the same directory:
 ```bash
 output
 └── 7205759405XXXXXXXX
-    ├── mesh_warped.obj # only if `--warp-mesh` is explicitly set
+    ├── mesh_warped.obj    # only if `--warp-mesh` is explicitly set
     ├── mesh.obj
+    ├── skeleton-cave.swc  # CAVE skeleton via pcg_skel
     ├── skeleton_warped.npz
     ├── skeleton_warped.png
     ├── skeleton_warped.swc
@@ -117,8 +118,26 @@ output
 - change the z-extends for the stratification profile, e.g.: `flatone SEG_ID --overwrite-profile --z-profile-extent -30 50`
 - change the soma detection threshold if the default failed, e.g.: `flatone SEG_ID --soma-threshold 90 --overwrite-skeleton --overwrite-profile`
 - change the initial soma guess (needed if there's no soma in the mesh), e.g.: `flatone SEG_ID --soma-init-guess z max --overwrite-skeleton --overwrite-profile`
+- provide a soma position for the CAVE skeleton (enables root-point anchoring and soma collapse): `flatone SEG_ID --soma-pos X Y Z` (voxel coordinates, default resolution `16 16 40` nm/voxel, adjustable with `--root-point-resolution`)
 
 You can also warp the mesh, but it's not in the default as it's a much slower process and not always needed to do. You can run `flatone SEGMENT_ID --warp-mesh` to warp the mesh (and the previous steps will not be recomputed unless you also provide any of the `--overwrite*` flags).
+
+### Standalone data downloads
+
+You can download individual data products without running the full pipeline:
+
+```bash
+# download just the mesh
+flatone get-mesh SEGMENT_ID
+
+# download just the CAVE skeleton
+flatone get-cave-skeleton SEGMENT_ID
+
+# with soma position for root-point anchoring
+flatone get-cave-skeleton SEGMENT_ID --soma-pos X Y Z
+```
+
+### Interactive viewer
 
 `flatone` also has a (limited) interactive 3d viewer, which you can activate via `flatone view3d`. You can append a SEGMENT_ID after it to just view this cell, or without it, to view all cells within the `output/` folder. By default, it will view the unwarped meshes and skeletons together, if you warped the mesh already, you can also view the warped meshes and skeletons with `flatone view3d --warped`. You can also curate a different set of cells in another folder, then view them with `flatone view3d --warped --output-dir="path/to/another/folder".
 
